@@ -1,1 +1,3 @@
-run = "pip install -r requirements.txt && python3 api.py & cd whatsapp && npm install && node bot.js"
+modules = ["python-3.11", "nodejs-20"]
+
+run = "python3 -m pip install -r requirements.txt && python3 api.py & cd whatsapp && node bot.js"
