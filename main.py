@@ -1,0 +1,1 @@
+print("IMIP Bot aktif")
