@@ -9,10 +9,10 @@ from scraper import (
     rekap_kas_rapih,
     ambil_bulan
 )
+from ai_gemini import tanya_ilmi
 
 
 app = Flask(__name__)
-
 
 
 # ==========================
@@ -49,9 +49,9 @@ def get_database():
 def bantuan():
 
     return """
-Bendahara IMIP Bot
+Assalamu'alaikum! Akang/Teteh, saya **Ilmi** (Asisten Resmi IMIP) 🤖✨
 
-Format:
+Format Perintah Kas:
 
 1. Cek kas anggota
 kas [NIM] [bulan]
@@ -65,8 +65,9 @@ Contoh: rekap kas agustus
 rekap kas rapih [bulan]
 Contoh: rekap kas rapih agustus
 
-Jika bulan tidak ditulis:
-otomatis sampai Desember.
+4. Tanya Ilmi AI (Tanya apa saja seputar IMIP)
+Sertakan kata "ilmi" dalam pesan kamu!
+Contoh: ilmi siapa ketua IMIP tahun ini?
 """
 
 
@@ -159,24 +160,11 @@ def home():
 
 @app.route("/bot", methods=["POST"])
 def bot():
-
-
-    data = request.json
-
-
-    pesan = data.get(
-        "message",
-        ""
-    )
-
-
-    text = pesan.lower()
-
-
-
-    # ambil database terbaru
     anggota, transaksi = get_database()
 
+    data = request.json or {}
+    pesan = data.get("message", "")
+    text = pesan.lower()
 
 
     # =====================
@@ -186,7 +174,6 @@ def bot():
     if (
         "help" in text
         or "bantuan" in text
-        or text.strip() == ""
     ):
 
         reply = bantuan()
@@ -194,96 +181,76 @@ def bot():
 
 
     # =====================
-    # REKAP RAPIH
+    # REKAP KAS RAPIH
     # =====================
-
-    elif "rekap kas rapih" in text:
-
+    if "rekap" in text and ("rapih" in text or "rapi" in text):
         bulan = ambil_bulan(text)
-
         reply = proses_rekap_rapih(
             bulan,
             anggota,
             transaksi
         )
 
-
-
     # =====================
-    # REKAP BIASA
+    # REKAP KAS BIASA
     # =====================
-
-    elif "rekap kas" in text:
-
+    elif "rekap" in text and "kas" in text:
         bulan = ambil_bulan(text)
-
         reply = proses_rekap(
             bulan,
             anggota,
             transaksi
         )
 
-
-
     # =====================
-    # CEK NIM
+    # CEK KAS NIM / REKAP CONVERSATIONAL
     # =====================
-
     elif "kas" in text:
-
-
         kata = pesan.split()
-
-
         nim = None
 
-
         for k in kata:
-
-            if (
-                k.isdigit()
-                and len(k) >= 8
-            ):
-
-                nim = k
-
-
+            # bersihkan tanda baca jika ada
+            k_bersih = ''.join(c for c in k if c.isdigit())
+            if len(k_bersih) >= 8:
+                nim = k_bersih
+                break
 
         if nim:
-
-
             bulan = ambil_bulan(text)
-
-
             reply = proses_cek_kas(
                 nim,
                 bulan,
                 anggota,
                 transaksi
             )
-
-
+        elif "rekap" in text:
+            bulan = ambil_bulan(text)
+            reply = proses_rekap(
+                bulan,
+                anggota,
+                transaksi
+            )
+        elif "ilmi" in text:
+            reply = tanya_ilmi(pesan)
         else:
-
             reply = """
 NIM tidak ditemukan.
 
 Contoh:
 kas 2490343138 agustus
+atau: ilmi rekap kas
 """
 
-
+    # =====================
+    # TANYA ILMI (GEMINI AI)
+    # =====================
+    elif "ilmi" in text:
+        reply = tanya_ilmi(pesan)
 
     else:
-
-
-        reply = """
-Perintah tidak dikenali.
-
-Ketik:
-bantuan
-untuk melihat format.
-"""
+        # Jika bukan perintah kas & tidak memanggil "ilmi", diam (tidak kirim balasan)
+        reply = ""
 
 
 
