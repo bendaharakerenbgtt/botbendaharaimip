@@ -145,6 +145,15 @@ def proses_rekap_rapih(
 
 
 # ==========================
+# HEALTH CHECK / KEEP ALIVE
+# ==========================
+
+@app.route("/", methods=["GET"])
+def home():
+    return "IMIP Bot Bendahara is active and running!"
+
+
+# ==========================
 # API BOT
 # ==========================
 

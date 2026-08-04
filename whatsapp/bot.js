@@ -1,6 +1,7 @@
 const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
+const fs = require('fs');
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState('baileys_auth_info');
@@ -22,11 +23,17 @@ async function connectToWhatsApp() {
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi terputus. Mencoba menghubungkan kembali...', shouldReconnect);
-            if (shouldReconnect) {
-                connectToWhatsApp();
+            const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+            console.log('Koneksi terputus. Mencoba menghubungkan ulang...');
+
+            if (isLoggedOut) {
+                console.log('Session terlepas. Menghapus sesi lama untuk generate QR baru...');
+                try {
+                    fs.rmSync('baileys_auth_info', { recursive: true, force: true });
+                } catch (e) {}
             }
+
+            setTimeout(connectToWhatsApp, 3000);
         } else if (connection === 'open') {
             console.log('✅ Bot WhatsApp (Baileys) terhubung dan siap digunakan!');
         }
