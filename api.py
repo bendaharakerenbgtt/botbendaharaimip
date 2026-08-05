@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 import io
 import contextlib
+import os
+from datetime import datetime
 
 from scraper import (
     ambil_data,
@@ -13,6 +15,33 @@ from ai_gemini import tanya_ilmi
 
 
 app = Flask(__name__)
+
+
+# ==========================
+# SIMPAN LOG PERTANYAAN USER
+# ==========================
+
+def simpan_log_pertanyaan(pesan_user):
+    if not pesan_user or not pesan_user.strip():
+        return
+    try:
+        waktu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open("log_pertanyaan.txt", "a", encoding="utf-8") as f:
+            f.write(f"[{waktu}] {pesan_user.strip()}\n")
+    except Exception as e:
+        print("Gagal menyimpan log:", e)
+
+
+def ambil_log_pertanyaan(jumlah=20):
+    if not os.path.exists("log_pertanyaan.txt"):
+        return "Belum ada riwayat pertanyaan tercatat."
+    try:
+        with open("log_pertanyaan.txt", "r", encoding="utf-8") as f:
+            baris = f.readlines()
+        baris_terakhir = baris[-jumlah:]
+        return "".join(baris_terakhir)
+    except Exception as e:
+        return f"Gagal membaca log: {e}"
 
 
 # ==========================
@@ -166,12 +195,20 @@ def bot():
     pesan = data.get("message", "")
     text = pesan.lower()
 
+    # Catat semua log pertanyaan masuk jika memanggil ilmi atau kas
+    if "ilmi" in text or "kas" in text or "rekap" in text:
+        simpan_log_pertanyaan(pesan)
+
+    # =====================
+    # LOGS & LAPORAN PERTANYAAN (KHUSUS PENGEMBANG / RISKI RADITIYA)
+    # =====================
+    if "ilmi log" in text or "ilmi laporan" in text or "ilmi log pertanyaan" in text:
+        reply = "📋 *LAPORAN PERTANYAAN MASUK KE ILMI AI (20 TERAKHIR):*\n\n" + ambil_log_pertanyaan(20)
 
     # =====================
     # HELP
     # =====================
-
-    if (
+    elif (
         "help" in text
         or "bantuan" in text
     ):
@@ -183,7 +220,7 @@ def bot():
     # =====================
     # REKAP KAS RAPIH
     # =====================
-    if "rekap" in text and ("rapih" in text or "rapi" in text):
+    elif "rekap" in text and ("rapih" in text or "rapi" in text):
         bulan = ambil_bulan(text)
         reply = proses_rekap_rapih(
             bulan,
@@ -255,10 +292,35 @@ atau: ilmi rekap kas
 
 
     return jsonify({
-
         "reply": reply.strip()
-
     })
+
+
+# ==========================
+# WEB ROUTE LOGS PERTANYAAN (FOR RISKI RADITIYA)
+# ==========================
+
+@app.route("/logs", methods=["GET"])
+def lihat_logs():
+    logs = ambil_log_pertanyaan(100)
+    return f"""
+    <html>
+        <head>
+            <title>Laporan Pertanyaan Masuk - Ilmi AI</title>
+            <style>
+                body {{ font-family: monospace; background: #0f172a; color: #38bdf8; padding: 20px; }}
+                h1 {{ color: #f43f5e; }}
+                pre {{ background: #1e293b; padding: 15px; border-radius: 8px; color: #f8fafc; overflow-x: auto; }}
+            </style>
+        </head>
+        <body>
+            <h1>📋 Laporan Pertanyaan Masuk ke Ilmi AI</h1>
+            <p>Pengembang: <b>Riski Raditiya</b> (Biro Bendahara LDK IMIP 2026)</p>
+            <hr/>
+            <pre>{logs}</pre>
+        </body>
+    </html>
+    """
 
 
 
