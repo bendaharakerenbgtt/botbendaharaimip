@@ -189,107 +189,65 @@ def home():
 
 @app.route("/bot", methods=["POST"])
 def bot():
-    anggota, transaksi = get_database()
-
     data = request.json or {}
     pesan = data.get("message", "")
     text = pesan.lower()
 
-    # Catat semua log pertanyaan masuk jika memanggil ilmi atau kas
-    if "ilmi" in text or "kas" in text or "rekap" in text:
-        simpan_log_pertanyaan(pesan)
+    if not pesan or not pesan.strip():
+        return jsonify({"reply": ""})
 
-    # =====================
-    # LOGS & LAPORAN PERTANYAAN (KHUSUS PENGEMBANG / RISKI RADITIYA)
-    # =====================
-    if "ilmi log" in text or "ilmi laporan" in text or "ilmi log pertanyaan" in text:
-        reply = "📋 *LAPORAN PERTANYAAN MASUK KE ILMI AI (20 TERAKHIR):*\n\n" + ambil_log_pertanyaan(20)
+    # ATURAN EMAS GRUP BESAR: Bot HANYA BANGUN jika pengguna memanggil kata "ilmi"!
+    # Jika tidak memanggil "ilmi", bot DIAM TOTAL (100% anti-spam di grup)
+    if "ilmi" not in text:
+        return jsonify({"reply": ""})
 
-    # =====================
-    # HELP
-    # =====================
-    elif (
-        "help" in text
-        or "bantuan" in text
-    ):
+    # Catat semua log pertanyaan masuk karena sudah dipastikan memanggil ilmi
+    simpan_log_pertanyaan(pesan)
 
+    import re
+    has_rekap = "rekap" in text
+    has_kas_word = bool(re.search(r'\bkas\b', text))
+
+    # Cari NIM (angka 8 digit ke atas)
+    kata = pesan.split()
+    nim = None
+    for k in kata:
+        k_bersih = ''.join(c for c in k if c.isdigit())
+        if len(k_bersih) >= 8:
+            nim = k_bersih
+            break
+
+    reply = ""
+
+    # 1. Perintah Laporan / Log (Khusus pengembang / Riski Raditiya)
+    if "log" in text or "laporan" in text:
+        reply = "📋 LAPORAN PERTANYAAN MASUK KE ILMI AI (20 TERAKHIR):\n\n" + ambil_log_pertanyaan(20)
+
+    # 2. Perintah Help / Bantuan (misal "ilmi help", "ilmi bantuan")
+    elif "help" in text or "bantuan" in text:
         reply = bantuan()
 
-
-
-    # =====================
-    # REKAP KAS RAPIH
-    # =====================
-    elif "rekap" in text and ("rapih" in text or "rapi" in text):
+    # 3. Perintah Rekap Kas Rapih (misal "ilmi rekap kas rapih", "ilmi rekap rapih")
+    elif has_rekap and ("rapih" in text or "rapi" in text):
+        anggota, transaksi = get_database()
         bulan = ambil_bulan(text)
-        reply = proses_rekap_rapih(
-            bulan,
-            anggota,
-            transaksi
-        )
+        reply = proses_rekap_rapih(bulan, anggota, transaksi)
 
-    # =====================
-    # REKAP KAS BIASA
-    # =====================
-    elif "rekap" in text and "kas" in text:
+    # 4. Perintah Rekap Kas Biasa (misal "ilmi rekap kas", "ilmi rekap")
+    elif has_rekap:
+        anggota, transaksi = get_database()
         bulan = ambil_bulan(text)
-        reply = proses_rekap(
-            bulan,
-            anggota,
-            transaksi
-        )
+        reply = proses_rekap(bulan, anggota, transaksi)
 
-    # =====================
-    # CEK KAS NIM / REKAP CONVERSATIONAL
-    # =====================
-    elif "kas" in text:
-        kata = pesan.split()
-        nim = None
+    # 5. Perintah Cek Kas NIM Spesifik (misal "ilmi kas 2490343138" atau "ilmi cek kas 2490343138")
+    elif nim:
+        anggota, transaksi = get_database()
+        bulan = ambil_bulan(text)
+        reply = proses_cek_kas(nim, bulan, anggota, transaksi)
 
-        for k in kata:
-            # bersihkan tanda baca jika ada
-            k_bersih = ''.join(c for c in k if c.isdigit())
-            if len(k_bersih) >= 8:
-                nim = k_bersih
-                break
-
-        if nim:
-            bulan = ambil_bulan(text)
-            reply = proses_cek_kas(
-                nim,
-                bulan,
-                anggota,
-                transaksi
-            )
-        elif "rekap" in text:
-            bulan = ambil_bulan(text)
-            reply = proses_rekap(
-                bulan,
-                anggota,
-                transaksi
-            )
-        elif "ilmi" in text:
-            reply = tanya_ilmi(pesan)
-        else:
-            reply = """
-NIM tidak ditemukan.
-
-Contoh:
-kas 2490343138 agustus
-atau: ilmi rekap kas
-"""
-
-    # =====================
-    # TANYA ILMI (GEMINI AI)
-    # =====================
-    elif "ilmi" in text:
-        reply = tanya_ilmi(pesan)
-
+    # 6. Pertanyaan Umum / AI Gemini (misal "ilmi siapa ketua IMIP?")
     else:
-        # Jika bukan perintah kas & tidak memanggil "ilmi", diam (tidak kirim balasan)
-        reply = ""
-
-
+        reply = tanya_ilmi(pesan)
 
     reply_bersih = bersihkan_format_markdown(reply.strip())
     return jsonify({
