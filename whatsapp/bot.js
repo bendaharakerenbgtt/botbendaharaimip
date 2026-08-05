@@ -64,6 +64,11 @@ async function connectToWhatsApp() {
                 const data = await res.json();
 
                 if (data && data.reply) {
+                    // Simulasi ketikan manusia (human-like typing) 1.5 detik agar anti-spam WA
+                    await sock.sendPresenceUpdate('composing', from);
+                    await new Promise(r => setTimeout(r, 1500));
+                    await sock.sendPresenceUpdate('paused', from);
+
                     await sock.sendMessage(from, { text: data.reply }, { quoted: msg });
                 }
             } catch (error) {
