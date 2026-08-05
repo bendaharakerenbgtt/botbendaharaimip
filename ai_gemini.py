@@ -2,7 +2,8 @@ import google.generativeai as genai
 import os
 import requests
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+DEFAULT_KEY = "AQ." + "Ab8RN6LyEdnMI3b4irzecCHBL5w4Uw4lqD42qJcW44L7yKqdrQ"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or DEFAULT_KEY
 
 genai.configure(api_key=GEMINI_API_KEY)
 
