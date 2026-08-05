@@ -59,13 +59,23 @@ bulan_mapping = {
 # ==========================
 
 def ambil_data():
-
-    print("Mengambil data...\n")
-
-    anggota = pd.read_csv(URL_ANGGOTA)
-
-    transaksi = pd.read_csv(URL_TRANSAKSI)
-
+    import time
+    ts = int(time.time())
+    url_anggota = f"{URL_ANGGOTA}&_cb={ts}"
+    url_transaksi = f"{URL_TRANSAKSI}&_cb={ts}"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    
+    res_ang = requests.get(url_anggota, headers=headers, timeout=10)
+    res_tra = requests.get(url_transaksi, headers=headers, timeout=10)
+    
+    anggota = pd.read_csv(StringIO(res_ang.text))
+    transaksi = pd.read_csv(StringIO(res_tra.text))
 
     return anggota, transaksi
 
@@ -176,7 +186,7 @@ def ambil_bulan(text):
 
 
 # ==========================
-# REKAP SEMUA (BIASA)
+# REKAP SEMUA (BIASA BERDASARKAN JABATAN & DIVISI)
 # ==========================
 
 def rekap_kas(
@@ -186,43 +196,60 @@ def rekap_kas(
 ):
 
     print("========================")
-    print(
-        f"REKAP KAS {bulan_list[bulan_limit].upper()}"
-    )
+    print(f"REKAP KAS {bulan_list[bulan_limit].upper()}")
     print("========================\n")
 
-    # hanya aktif
-    anggota_aktif = anggota[
-        anggota["is_active"] == True
-    ]
+    anggota_aktif = anggota[anggota["is_active"] == True]
 
-    belum_lunas = []
-    sudah_lunas = []
+    grup_order = [
+        "Pimpinan Utama",
+        "Kepala Departemen",
+        "Biro Kesekretariatan",
+        "Biro Bendahara",
+        "Departemen Kaderisasi",
+        "Departemen Syi'ar Islam",
+        "Departemen Sosial Masyarakat",
+        "Departemen HuMed",
+        "Departemen UUS"
+    ]
+    grup_dict = {g: [] for g in grup_order}
 
     for _, orang in anggota_aktif.iterrows():
-
-        tunggakan = hitung_tunggakan(
-            orang["id_anggota"],
-            bulan_limit,
-            transaksi
-        )
-
+        nama = orang["nama"]
+        jabatan = str(orang["jabatan"]).strip()
+        divisi = str(orang["divisi"]).strip()
+        
+        tunggakan = hitung_tunggakan(orang["id_anggota"], bulan_limit, transaksi)
         if len(tunggakan) > 0:
             jumlah = len(tunggakan) * 10000
             jumlah_str = f"{jumlah:,}".replace(",", ".")
-            belum_lunas.append(f"{orang['nama']} : {jumlah_str}")
+            status = f"Tunggakan Rp {jumlah_str}"
         else:
-            sudah_lunas.append(f"{orang['nama']} : LUNAS")
+            status = "LUNAS"
 
-    for item in belum_lunas:
-        print(item)
+        if divisi == "Pimpinan Utama" or jabatan in ["Ketua Umum", "Sekretaris Jenderal", "Sekretaris Jenderal (Mas'ul)", "Koor Keakhwatan"]:
+            kategori = "Pimpinan Utama"
+        elif jabatan in ["Kepala Departemen", "Kepala Biro"]:
+            kategori = "Kepala Departemen"
+        elif divisi in grup_dict:
+            kategori = divisi
+        else:
+            kategori = "Lainnya"
 
-    for item in sudah_lunas:
-        print(item)
+        if kategori in grup_dict:
+            grup_dict[kategori].append((nama, jabatan, status))
+
+    for g in grup_order:
+        list_orang = grup_dict[g]
+        if list_orang:
+            print(f"[ {g.upper()} ]")
+            for nama, jab, status in list_orang:
+                print(f"{nama} ({jab}) : {status}")
+            print("")
 
 
 # ==========================
-# REKAP SEMUA (RAPIH)
+# REKAP SEMUA (RAPIH BERDASARKAN JABATAN & DIVISI)
 # ==========================
 
 def rekap_kas_rapih(
@@ -231,56 +258,69 @@ def rekap_kas_rapih(
         transaksi
 ):
 
-    # hanya aktif
-    anggota_aktif = anggota[
-        anggota["is_active"] == True
-    ]
+    anggota_aktif = anggota[anggota["is_active"] == True]
 
-    belum_lunas = []
-    sudah_lunas = []
+    grup_order = [
+        "Pimpinan Utama",
+        "Kepala Departemen",
+        "Biro Kesekretariatan",
+        "Biro Bendahara",
+        "Departemen Kaderisasi",
+        "Departemen Syi'ar Islam",
+        "Departemen Sosial Masyarakat",
+        "Departemen HuMed",
+        "Departemen UUS"
+    ]
+    grup_dict = {g: [] for g in grup_order}
+
+    tot_belum_lunas = 0
+    tot_lunas = 0
 
     for _, orang in anggota_aktif.iterrows():
+        nama = orang["nama"]
+        jabatan = str(orang["jabatan"]).strip()
+        divisi = str(orang["divisi"]).strip()
 
-        tunggakan = hitung_tunggakan(
-            orang["id_anggota"],
-            bulan_limit,
-            transaksi
-        )
-
+        tunggakan = hitung_tunggakan(orang["id_anggota"], bulan_limit, transaksi)
         if len(tunggakan) > 0:
             jumlah = len(tunggakan) * 10000
             jumlah_str = f"{jumlah:,}".replace(",", ".")
-            belum_lunas.append((orang["nama"], jumlah_str))
+            status = f"Tunggakan Rp {jumlah_str}"
+            tot_belum_lunas += 1
         else:
-            sudah_lunas.append(orang["nama"])
+            status = "LUNAS"
+            tot_lunas += 1
+
+        if divisi == "Pimpinan Utama" or jabatan in ["Ketua Umum", "Sekretaris Jenderal", "Sekretaris Jenderal (Mas'ul)", "Koor Keakhwatan"]:
+            kategori = "Pimpinan Utama"
+        elif jabatan in ["Kepala Departemen", "Kepala Biro"]:
+            kategori = "Kepala Departemen"
+        elif divisi in grup_dict:
+            kategori = divisi
+        else:
+            kategori = "Lainnya"
+
+        if kategori in grup_dict:
+            grup_dict[kategori].append((nama, jabatan, status))
 
     nama_bulan = bulan_list[bulan_limit].upper()
-
     lines = []
     lines.append("====================")
     lines.append(f"REKAP KAS {nama_bulan}")
+    lines.append("====================\n")
+
+    for g in grup_order:
+        list_orang = grup_dict[g]
+        if list_orang:
+            lines.append(f"[ {g.upper()} ]")
+            for nama, jab, status in list_orang:
+                lines.append(f"{nama} ({jab}) : {status}")
+            lines.append("")
+
     lines.append("====================")
-    lines.append("")
-    lines.append("BELUM LUNAS")
-    lines.append("")
-
-    for idx, (nama, tunggakan_str) in enumerate(belum_lunas, 1):
-        lines.append(f"{idx}. {nama}")
-        lines.append(f"   Tunggakan: {tunggakan_str}")
-        lines.append("")
-
-    lines.append("")
-    lines.append("====================")
-    lines.append("SUDAH LUNAS")
-    lines.append("")
-
-    for nama in sudah_lunas:
-        lines.append(f"- {nama}")
-
-    lines.append("")
-    lines.append("Total:")
-    lines.append(f"Belum lunas: {len(belum_lunas)} orang")
-    lines.append(f"Lunas: {len(sudah_lunas)} orang")
+    lines.append("RINGKASAN TOTAL:")
+    lines.append(f"Belum Lunas: {tot_belum_lunas} orang")
+    lines.append(f"Lunas: {tot_lunas} orang")
     lines.append("====================")
 
     print("\n".join(lines))
