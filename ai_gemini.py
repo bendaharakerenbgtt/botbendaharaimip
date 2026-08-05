@@ -76,7 +76,28 @@ PRINSIP KECERDASAN STAF ORGANISASI:
    - Apakah ada kontradiksi data?
    - Apakah sudah menjawab inti pertanyaan pengguna?
    - Apakah perlu memberikan rekomendasi / kontak pengurus/Kadiv terkait sebagai langkah selanjutnya (Next Action)?
+
+7. ATURAN FORMATTING KETAT (WAJIB DITURUTI):
+   - DILARANG KERAS MENGGUNAKAN SIMBOL BINTANG/ASTERISK (*) ATAU (**) UNTUK NGEBOLD TEKS.
+   - DILARANG KERAS MENGGUNAKAN SIMBOL STRIP (-) UNTUK MEMBUAT POIN/LIST.
+   - Tulis teks secara alami, polos, dan natural seperti manusia asli sedang mengetik pesan di WhatsApp (gunakan paragraf biasa, spasi antar baris, atau angka 1. 2. 3. jika butuh urutan poin).
 """
+
+def bersihkan_format_markdown(teks):
+    if not teks:
+        return teks
+    # Hapus semua tanda bintang (*)
+    teks = teks.replace("*", "")
+    # Hapus strip (-) di awal poin/baris
+    baris_baru = []
+    for line in teks.split("\n"):
+        line_strip = line.strip()
+        if line_strip.startswith("- "):
+            line = line.replace("- ", "", 1)
+        elif line_strip.startswith("-"):
+            line = line.replace("-", "", 1)
+        baris_baru.append(line)
+    return "\n".join(baris_baru)
 
 def is_smalltalk(text):
     text_clean = text.lower().strip()
@@ -91,10 +112,10 @@ def tanya_ilmi(pesan_user):
         # Jika pesan hanya salam/sapaan/santai, gunakan payload ringan agar hemat token 90%
         if is_smalltalk(pesan_user):
             pengetahuan = """
-- Nama: Ilmi (Asisten Virtual Resmi LDK IMIP PoliMedia).
-- Pembuat: Riski Raditiya (Biro Bendahara Kabinet Muharrik LDK IMIP 2026) pada Agustus 2026.
-- Fungsi: Membantu Anggota & Pengurus LDK IMIP seputar informasi organisasi, persuratan, kas, proker, AD/ART, PKO, dan inventaris.
-- Website Kas & Keuangan: https://www.danaimip.web.id/
+Nama: Ilmi (Asisten Virtual Resmi LDK IMIP PoliMedia).
+Pembuat: Riski Raditiya (Biro Bendahara Kabinet Muharrik LDK IMIP 2026) pada Agustus 2026.
+Fungsi: Membantu Anggota & Pengurus LDK IMIP seputar informasi organisasi, persuratan, kas, proker, AD/ART, PKO, dan inventaris.
+Website Kas & Keuangan: https://www.danaimip.web.id/
 """
         else:
             pengetahuan = muat_pengetahuan()
@@ -134,7 +155,8 @@ Respon kamu sebagai Ilmi:
                 break
 
         if response and response.text:
-            return response.text.strip()
+            hasil_teks = response.text.strip()
+            return bersihkan_format_markdown(hasil_teks)
         else:
             return "Assalamu'alaikum sob, Ilmi lagi sibuk sebentar nih. Coba sapa Ilmi lagi beberapa detik lagi ya! 🙏"
             
