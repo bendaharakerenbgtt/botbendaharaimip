@@ -1,6 +1,9 @@
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 import google.generativeai as genai
 import os
 import requests
+import time
 
 DEFAULT_KEY = "AQ." + "Ab8RN6LyEdnMI3b4irzecCHBL5w4Uw4lqD42qJcW44L7yKqdrQ"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or DEFAULT_KEY
@@ -94,6 +97,7 @@ Respon kamu sebagai Ilmi:
         models_to_try = [
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            "gemini-flash-latest",
             "gemini-flash-lite-latest"
         ]
         response = None
@@ -105,7 +109,10 @@ Respon kamu sebagai Ilmi:
                 if response and response.text:
                     break
             except Exception as e_inner:
-                print(f"Model {model_name} failed: {e_inner}")
+                err_str = str(e_inner)
+                print(f"Model {model_name} note: {err_str[:120]}")
+                if "429" in err_str or "quota" in err_str.lower():
+                    time.sleep(1.5)
 
         if response and response.text:
             return response.text.strip()
