@@ -78,9 +78,26 @@ PRINSIP KECERDASAN STAF ORGANISASI:
    - Apakah perlu memberikan rekomendasi / kontak pengurus/Kadiv terkait sebagai langkah selanjutnya (Next Action)?
 """
 
+def is_smalltalk(text):
+    text_clean = text.lower().strip()
+    kata = text_clean.split()
+    sapaan = ["halo", "hai", "helo", "hello", "p", "tes", "test", "keadaanmu", "kabarmu", "bisa apa", "siapa kamu", "siapa namamu", "apa kabar"]
+    if len(kata) <= 4 and any(s in text_clean for s in sapaan):
+        return True
+    return False
+
 def tanya_ilmi(pesan_user):
     try:
-        pengetahuan = muat_pengetahuan()
+        # Jika pesan hanya salam/sapaan/santai, gunakan payload ringan agar hemat token 90%
+        if is_smalltalk(pesan_user):
+            pengetahuan = """
+- Nama: Ilmi (Asisten Virtual Resmi LDK IMIP PoliMedia).
+- Pembuat: Riski Raditiya (Biro Bendahara Kabinet Muharrik LDK IMIP 2026) pada Agustus 2026.
+- Fungsi: Membantu Anggota & Pengurus LDK IMIP seputar informasi organisasi, persuratan, kas, proker, AD/ART, PKO, dan inventaris.
+- Website Kas & Keuangan: https://www.danaimip.web.id/
+"""
+        else:
+            pengetahuan = muat_pengetahuan()
         
         prompt = f"""
 {SYSTEM_INSTRUCTION}
@@ -102,22 +119,24 @@ Respon kamu sebagai Ilmi:
         ]
         response = None
 
-        for model_name in models_to_try:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    break
-            except Exception as e_inner:
-                err_str = str(e_inner)
-                print(f"Model {model_name} note: {err_str[:120]}")
-                if "429" in err_str or "quota" in err_str.lower():
-                    time.sleep(1.5)
+        for attempt in range(2): # 2 putaran coba jika kena 429
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        break
+                except Exception as e_inner:
+                    err_str = str(e_inner)
+                    if "429" in err_str or "quota" in err_str.lower():
+                        time.sleep(2)
+            if response and response.text:
+                break
 
         if response and response.text:
             return response.text.strip()
         else:
-            return "Assalamu'alaikum sob, maaf Ilmi belum bisa merespon pertanyaanmu saat ini. Coba tanya lagi nanti ya!"
+            return "Assalamu'alaikum sob, Ilmi lagi sibuk sebentar nih. Coba sapa Ilmi lagi beberapa detik lagi ya! 🙏"
             
     except Exception as e:
         print("Error Gemini API:", e)
