@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 import io
 import contextlib
 import os
+import threading
+import time
+import requests
 from datetime import datetime
 
 from scraper import (
@@ -15,6 +18,22 @@ from ai_gemini import tanya_ilmi, bersihkan_format_markdown
 
 
 app = Flask(__name__)
+
+
+# ==========================
+# INTERNAL SELF-PING KEEP-ALIVE
+# ==========================
+
+def internal_self_ping():
+    time.sleep(10)
+    while True:
+        try:
+            requests.get("http://127.0.0.1:5000/", timeout=5)
+        except Exception:
+            pass
+        time.sleep(120)
+
+threading.Thread(target=internal_self_ping, daemon=True).start()
 
 
 # ==========================
