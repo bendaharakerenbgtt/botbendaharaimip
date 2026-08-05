@@ -11,7 +11,7 @@ from scraper import (
     rekap_kas_rapih,
     ambil_bulan
 )
-from ai_gemini import tanya_ilmi
+from ai_gemini import tanya_ilmi, bersihkan_format_markdown
 
 
 app = Flask(__name__)
@@ -291,8 +291,9 @@ atau: ilmi rekap kas
 
 
 
+    reply_bersih = bersihkan_format_markdown(reply.strip())
     return jsonify({
-        "reply": reply.strip()
+        "reply": reply_bersih
     })
 
 
