@@ -5,3 +5,7 @@ run = "python3 api.py & cd whatsapp && node bot.js"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[deployment]
+run = ["sh", "start.sh"]
+deploymentTarget = "cloudrun"
