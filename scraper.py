@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import re
 from io import StringIO
 
 
@@ -37,19 +38,24 @@ bulan_list = [
 ]
 
 
+singkatan_bulan = {
+    "jan": "Januari", "januari": "Januari",
+    "feb": "Februari", "februari": "Februari",
+    "mar": "Maret", "maret": "Maret",
+    "apr": "April", "april": "April",
+    "mei": "Mei",
+    "jun": "Juni", "juni": "Juni",
+    "jul": "Juli", "juli": "Juli",
+    "agu": "Agustus", "agt": "Agustus", "agus": "Agustus", "agustus": "Agustus",
+    "sep": "September", "sept": "September", "september": "September",
+    "okt": "Oktober", "oktober": "Oktober",
+    "nov": "November", "november": "November",
+    "des": "Desember", "desember": "Desember"
+}
+
 bulan_mapping = {
-    "januari":1,
-    "februari":2,
-    "maret":3,
-    "april":4,
-    "mei":5,
-    "juni":6,
-    "juli":7,
-    "agustus":8,
-    "september":9,
-    "oktober":10,
-    "november":11,
-    "desember":12
+    "januari":1, "februari":2, "maret":3, "april":4, "mei":5, "juni":6,
+    "juli":7, "agustus":8, "september":9, "oktober":10, "november":11, "desember":12
 }
 
 
@@ -87,38 +93,27 @@ def ambil_data():
 # ==========================
 
 def cek_pembayaran(id_anggota, transaksi):
-
+    # Filter id_anggota secara fleksibel (string matching)
     data = transaksi[
-        (transaksi["id_anggota"] == id_anggota)
+        transaksi["id_anggota"].astype(str).str.strip() == str(id_anggota).strip()
     ]
 
-
-    # hanya kas pengurus
+    # Filter hanya kategori Kas Pengurus
     if "kategori" in data.columns:
         data = data[
-            data["kategori"] == "Kas Pengurus"
+            data["kategori"].astype(str).str.strip().str.lower() == "kas pengurus"
         ]
 
-
-    hasil = []
-
+    hasil = set()
 
     for _, row in data.iterrows():
-
         catatan = str(row["catatan"]).lower()
+        # Cocokkan singkatan bulan (seperti 'Jan', 'Feb', 'Jun', 'Jul')
+        for k, v in singkatan_bulan.items():
+            if re.search(r'\b' + k + r'\b', catatan):
+                hasil.add(v)
 
-
-        for bulan in bulan_mapping:
-
-            if bulan in catatan:
-
-                hasil.append(
-                    bulan.capitalize()
-                )
-
-
-    # hilangkan duplikat
-    return list(set(hasil))
+    return list(hasil)
 
 
 
